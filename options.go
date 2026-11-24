@@ -114,6 +114,8 @@ type ClientAuthenticationOptions struct {
 	AuthRetry           string
 	StaticChallenge     string
 	StaticChallengeEcho bool
+	NoCache             bool
+	QueryCredentials    bool
 }
 
 type ClientPullOptions struct {

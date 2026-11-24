@@ -349,7 +349,7 @@ func (c *Client) setInitialTunnelEventDeferred(deferred bool) {
 }
 
 func (c *Client) clearAuthToken() bool {
-	stagedUsername := c.loadStagedCredentials().username
+	stagedUsername := c.authTokenFallbackUsername(c.loadStagedCredentials())
 	c.tunnel.access.Lock()
 	tokenConfiguration := TunnelConfiguration{
 		AuthToken:     c.tunnel.authToken,
