@@ -43,14 +43,24 @@ type stagedCredentials struct {
 	password    string
 }
 
+// Upstream key_method_2_write (ssl.c) purges auth_user_pass right after
+// writing it when --auth-nocache is set, so the next key exchange queries the
+// credentials again, and keeps the user name in auth_token for a token pushed
+// later.
 func (c *Client) sessionCredentials(useActiveAuthToken bool) (string, string) {
 	staged := c.loadStagedCredentials()
+	if c.options.Authentication.NoCache {
+		c.purgeStagedCredentials()
+	}
 	if useActiveAuthToken {
-		tokenUsername, tokenPassword, tokenDefined := c.activeAuthTokenCredentials(staged.username)
+		tokenUsername, tokenPassword, tokenDefined := c.activeAuthTokenCredentials(c.authTokenFallbackUsername(staged))
 		if tokenDefined {
 			return c.noteSentCredentials(tokenUsername, tokenPassword, false)
 		}
 	}
+	c.authentication.access.Lock()
+	c.authentication.sentUsername = staged.username
+	c.authentication.access.Unlock()
 	return c.noteSentCredentials(staged.username, staged.password, staged.interactive)
 }
 
@@ -59,6 +69,15 @@ func (c *Client) noteSentCredentials(username string, password string, usedInter
 	c.authentication.sentInteractiveCredentials = usedInteractive
 	c.authentication.access.Unlock()
 	return username, password
+}
+
+func (c *Client) authTokenFallbackUsername(staged stagedCredentials) string {
+	if staged.username != "" {
+		return staged.username
+	}
+	c.authentication.access.Lock()
+	defer c.authentication.access.Unlock()
+	return c.authentication.sentUsername
 }
 
 func (c *Client) lastSentCredentialsInteractive() bool {

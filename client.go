@@ -43,6 +43,7 @@ type clientAuthenticationSession struct {
 	pendingChallenge            *pendingChallengeState
 	staged                      stagedCredentials
 	sentInteractiveCredentials  bool
+	sentUsername                string
 	previousAuthenticationError string
 	closed                      bool
 }
@@ -85,7 +86,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 		if options.Pull.RouteNoPull {
 			return nil, E.Extend(ErrOptionNotSupported, "route_nopull in static mode")
 		}
-		if options.Authentication.Username != "" || options.Authentication.Password != "" || options.Authentication.StaticChallenge != "" {
+		if options.Authentication.Username != "" || options.Authentication.Password != "" || options.Authentication.StaticChallenge != "" || options.Authentication.NoCache || options.Authentication.QueryCredentials {
 			return nil, E.Extend(ErrOptionNotSupported, "username/password in static mode")
 		}
 	}

@@ -112,18 +112,36 @@ func (c *Client) acquireSessionCredentials(ctx context.Context, useActiveAuthTok
 	if c.mode != ModeTLS {
 		return nil
 	}
-	if c.loadStagedCredentials().defined {
+	staged := c.loadStagedCredentials()
+	if staged.defined {
 		return nil
 	}
 	if useActiveAuthToken {
-		_, _, tokenDefined := c.activeAuthTokenCredentials("")
+		_, _, tokenDefined := c.activeAuthTokenCredentials(c.authTokenFallbackUsername(staged))
 		if tokenDefined {
 			return nil
 		}
 	}
 	authentication := c.options.Authentication
 	if authentication.StaticChallenge == "" {
-		c.stageCredentials(authentication.Username, authentication.Password, false)
+		if !authentication.QueryCredentials {
+			c.stageCredentials(authentication.Username, authentication.Password, false)
+			return nil
+		}
+		// Upstream get_user_pass_cr (misc.c) queries an --auth-user-pass without
+		// inline credentials and uses the answer as given.
+		response, err := c.awaitChallengeResponse(ctx, Challenge{
+			Kind:     ChallengeCredentials,
+			Username: authentication.Username,
+		})
+		if err != nil {
+			return err
+		}
+		username := response.Username
+		if username == "" {
+			username = authentication.Username
+		}
+		c.stageCredentials(username, response.Password, true)
 		return nil
 	}
 	username := authentication.Username
@@ -183,7 +201,7 @@ func (c *Client) interceptAuthChallenge(ctx context.Context, sessionErr error) (
 		}
 		username := challengeErr.Challenge.Username
 		if username == "" {
-			username = rejected.username
+			username = c.authTokenFallbackUsername(rejected)
 		}
 		c.stageCredentials(
 			username,

@@ -607,6 +607,11 @@ func (c *tlsClient) runRenegotiation(channel *tlsControlChannel, mustNegotiate t
 	if err != nil {
 		return nil, err
 	}
+	// Upstream key_method_2_write runs auth_user_pass_setup on every key exchange.
+	err = c.parent.acquireSessionCredentials(c.sessionContext, true)
+	if err != nil {
+		return nil, err
+	}
 	username, password := c.parent.sessionCredentials(true)
 	keyMethodPayload, err := buildTLSKeyMethod2Payload(false, tlsKeyMethodMessage{
 		OptionsString: c.localOptionsString,
